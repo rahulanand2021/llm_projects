@@ -4,6 +4,13 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import gradio as gr
 import json
+import base64
+from io import BytesIO
+from PIL import Image
+import matplotlib.pyplot as plt
+from pydub import AudioSegment
+from pydub.playback import play
+
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_root)
 
@@ -11,7 +18,7 @@ from mycomponents import reusable as re
 
 ticket_prices = {"london": "$799", "paris": "$899", "tokyo": "$1400", "berlin": "$499"}
 
-def chat(message, history):
+def chat1(message, history):
     gpt_system_message = "You are a helpful assistant for an Airline called FlightAI. "
     gpt_system_message += "Give short, courteous answers, no more than 1 sentence. "
     gpt_system_message += "Always be accurate. If you don't know the answer, say so."
@@ -36,8 +43,29 @@ def chat(message, history):
         )
     return response.choices[0].message.content
 
+def chat(history):
+    gpt_system_message = "You are a helpful assistant for an Airline called FlightAI. "
+    gpt_system_message += "Give short, courteous answers, no more than 1 sentence. "
+    gpt_system_message += "Always be accurate. If you don't know the answer, say so."
+    messages = [{"role": "system", "content": gpt_system_message}] + history
+    response = re.getOpenAI().chat.completions.create(model=re.gpt_model, messages=messages, tools=getTools())
+    image = None
+    
+    if response.choices[0].finish_reason=="tool_calls":
+        message = response.choices[0].message
+        response, city = handle_tool_call(message)
+        messages.append(message)
+        messages.append(response)
+        image = artist(city)
+        response = re.getOpenAI().chat.completions.create(model=re.gpt_model, messages=messages)
+        
+    reply = response.choices[0].message.content
+    history += [{"role":"assistant", "content":reply}]
+
+    return history, image
+
 def get_ticket_price(destination_city):
-    print(f"Tool get_ticket_price called for {destination_city}")
+    print(f"Tool called : get_ticket_price called for {destination_city}")
     city = destination_city.lower()
     return ticket_prices.get(city, "Unknown")
 
@@ -60,8 +88,9 @@ def loadPriceFunction() :
     return price_function
 
 # And this is included in a list of tools:
-
-tools = [{"type": "function", "function": loadPriceFunction()}]
+def getTools():
+    tools = [{"type": "function", "function": loadPriceFunction()}]
+    return tools
 
 def handle_tool_call(message):
     tool_call = message.tool_calls[0]
@@ -75,37 +104,76 @@ def handle_tool_call(message):
     }
     return response, city
 
-def chatWithTools(message, history):
+def chatWithTools(history):
     gpt_system_message = "You are a helpful assistant for an Airline called FlightAI. "
     gpt_system_message += "Give short, courteous answers, no more than 1 sentence. "
     gpt_system_message += "Always be accurate. If you don't know the answer, say so."
 
-    messages = [{"role": "system", "content": gpt_system_message}] + history + [{"role": "user", "content": message}]
+    messages = [{"role": "system", "content": gpt_system_message}] + history
+
+    image = None
 
     response = re.getOpenAI().chat.completions.create(
                 model=re.gpt_model, 
                 messages=messages, 
-                tools=tools)
-    print(f"Full Response from LLM {response}")
+                tools=getTools())
+    
     if response.choices[0].finish_reason=="tool_calls":
         message = response.choices[0].message
-        print(f"Message from LLM is {message}" )
         response, city = handle_tool_call(message)
-        print(f"Response from the function call is {response}")
         messages.append(message)
         messages.append(response)
+        image = artist(city)
         response = re.getOpenAI().chat.completions.create(
             model=re.gpt_model, 
             messages=messages)
-    
-    return response.choices[0].message.content
+        reply = response.choices[0].message.content
+        history += [{"role":"assistant", "content":reply}]
 
+    return history, image
 
+def artist(city):
+    image_response = re.getOpenAI().images.generate(
+            model="dall-e-3",
+            prompt=f"An image representing a vacation in {city}, showing tourist spots and everything unique about {city}, in a vibrant pop-art style",
+            size="1024x1024",
+            n=1,
+            response_format="b64_json",
+        )
+    image_base64 = image_response.data[0].b64_json
+    image_data = base64.b64decode(image_base64)
+    print("Image Data in Base 64 Decoded is : ")
+    return Image.open(BytesIO(image_data))
+
+def showCustomeUI():
+    with gr.Blocks() as ui:
+        with gr.Row():
+            chatbot = gr.Chatbot(height=500, type="messages")
+            image_output = gr.Image(height=500)
+        with gr.Row():
+            entry = gr.Textbox(label="Chat with our AI Assistant:")
+        with gr.Row():
+            clear = gr.Button("Clear")
+
+        def do_entry(message, history):
+            history += [{"role":"user", "content":message}]
+            return "", history
+
+        entry.submit(do_entry, inputs=[entry, chatbot], outputs=[entry, chatbot]).then(
+            chat, inputs=chatbot, outputs=[chatbot, image_output]
+        )
+        clear.click(lambda: None, inputs=None, outputs=chatbot, queue=False)
+
+    ui.launch(inbrowser=True)
 
 if __name__ == "__main__":
     try:
         re.loadSystemPrompts()
-        gr.ChatInterface(fn=chatWithTools, type="messages").launch(inbrowser=True)
-      #  print(get_ticket_price("dsjflds"))
+        # gr.ChatInterface(fn=chatWithTools, type="messages").launch(inbrowser=True)
+        # image = artist("New York City")
+        # plt.imshow(image)
+        # plt.axis('off')  # Hide axes
+        # plt.show()  # This will open a new window with the imag
+        showCustomeUI()
     except Exception as e:
         print(f"Error occurred: {e}")
