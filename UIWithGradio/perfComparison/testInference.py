@@ -9,6 +9,7 @@ def loadDotenvAndCheckAPIKey():
     load_dotenv(override=True)
     huggingface_api_key = os.getenv('HF_TOKEN')
 
+
     if not huggingface_api_key:
         raise ValueError("HuggingFace API key not found in environment variables")
     if huggingface_api_key and huggingface_api_key.startswith('hf_') and len(huggingface_api_key)>10:
