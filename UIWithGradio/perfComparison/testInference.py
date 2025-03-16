@@ -1,16 +1,33 @@
 from huggingface_hub import InferenceClient
 import json
 import gradio as gr
-
+from dotenv import load_dotenv
+import os
 
 # parsed_data = json.loads(completion.choices[0].message)
 # content = parsed_data[0]["content"]
 # print(completion.choices[0].message["content"])
 
+def loadDotenvAndCheckAPIKey():
+    global openai_api_key
+    load_dotenv(override=True)
+    huggingface_api_key = os.getenv('HF_TOKEN')
+
+    if not huggingface_api_key:
+        raise ValueError("HuggingFace API key not found in environment variables")
+    if huggingface_api_key and huggingface_api_key.startswith('hf_') and len(huggingface_api_key)>10:
+        print("Hugging Face API key looks good so far")
+    else:
+        print("There might be a problem with your Hugging Face API key? Please visit the troubleshooting notebook!")
+
+    return huggingface_api_key
+
 def askInferenceModel(question):
+    huggingface_api_Key = loadDotenvAndCheckAPIKey()
+
     client = InferenceClient(
         provider="hyperbolic",
-        api_key="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",
+        api_key=huggingface_api_Key,
     )
     messages = [
         {
