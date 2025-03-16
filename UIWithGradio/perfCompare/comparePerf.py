@@ -60,6 +60,7 @@ def write_output(cpp):
     code = cpp.replace("```cpp","").replace("```","")
     with open("./UIWithGradio/perfCompare/optimized.cpp", "w") as f:
         f.write(code)
+
 def messages_for(python):
     return [
         {"role": "system", "content": system_message},
@@ -73,12 +74,84 @@ def optimize_gpt(python):
         fragment = chunk.choices[0].delta.content or ""
         reply += fragment
         print(fragment, end='', flush=True)
-    write_output(reply)
+        yield reply.replace('```cpp\n','').replace('```','')
+    # write_output(reply)
 
+
+def optimize_claude(python):
+    result = claude.messages.stream(
+        model=CLAUDE_MODEL,
+        max_tokens=2000,
+        system=system_message,
+        messages=[{"role": "user", "content": user_prompt_for(python)}],
+    )
+    reply = ""
+    with result as stream:
+        for text in stream.text_stream:
+            reply += text
+            print(text, end="", flush=True)
+            yield reply.replace('```cpp\n','').replace('```','')
+    # write_output(reply)
+
+def optimize(python, model):
+    if model=="GPT":
+        result = optimize_gpt(python)
+    elif model=="Claude":
+        result = optimize_claude(python)
+    else:
+        raise ValueError("Unknown model")
+    for stream_so_far in result:
+        yield stream_so_far   
+
+def executePython(python) :
+    try:
+        output = io.StringIO()
+        sys.stdout = output
+        exec(python)
+    finally:
+        sys.stdout = sys.__stdout__
+    return output.getvalue()
+
+def execute_cpp(code):
+        write_output(code)
+        try:
+            compile_cmd = ["g++", "-Ofast", "-std=c++17", "-march=native", "-o", "./UIWithGradio/perfCompare/optimized.exe", "./UIWithGradio/perfCompare/optimized.cpp"]
+            compile_result = subprocess.run(compile_cmd, check=True, text=True, capture_output=True)
+            run_cmd = ["./UIWithGradio/perfCompare/optimized.exe"]
+            run_result = subprocess.run(run_cmd, check=True, text=True, capture_output=True)
+            return run_result.stdout
+        except subprocess.CalledProcessError as e:
+            return f"An error occurred:\n{e.stderr}"
+
+custom_css = """
+.python {background-color: #306998;}
+.cpp {background-color: orange;}
+.buttonc {background-color: green;}
+"""        
+def showUI(css=custom_css):
+    with gr.Blocks(css=css) as ui:
+        with gr.Row():
+            python = gr.Textbox(label="Python code:", lines=20, value=pi, elem_classes=["python"])
+            cpp = gr.Textbox(label="C++ code:", lines=20 , elem_classes=["cpp"])
+        with gr.Row():
+            model = gr.Dropdown(["GPT", "Claude"], label="Select model", value="GPT")
+        with gr.Row():
+            pythonOutput = gr.Textbox(label="Python code output:", lines=2)
+            cppOutput = gr.Textbox(label="C++ code output:", lines=2)            
+        with gr.Row():
+            convert = gr.Button("Convert code" , elem_classes=["buttonc"])
+        with gr.Row():
+            runPython = gr.Button("Run Python code")
+            runCpp = gr.Button("Run C++ code")
+        convert.click(optimize, inputs=[python, model], outputs=[cpp])
+        runPython.click(executePython, inputs=[python], outputs=[pythonOutput])
+        runCpp.click(execute_cpp, inputs=[cpp], outputs=[cppOutput])
+
+    ui.launch(inbrowser=True)
 
 if __name__== "__main__" :
     loadAPIKeys()
     loadOpenAIAndAnthropic()
-    optimize_gpt(pi)
+    showUI()
 
 
