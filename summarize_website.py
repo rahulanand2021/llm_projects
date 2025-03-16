@@ -6,7 +6,6 @@ from IPython.display import Markdown, display
 from openai import OpenAI
 from website import Website
 
-
 def loadDotenv():
     """
     Loads the environment variables from a .env file and retrieves the OpenAI API key.

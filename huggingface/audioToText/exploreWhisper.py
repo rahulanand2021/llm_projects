@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import torch
 from openai import OpenAI
+from huggingface_hub import InferenceClient
 
 AUDIO_MODEL = "whisper-1"
 LLAMA = "meta-llama/Meta-Llama-3.1-8B-Instruct"
@@ -80,9 +81,19 @@ def createMinutesOfMeeting(messages):
     mom = model.generate(inputs, max_new_tokens=2000, streamer=streamer)
     print(mom)
 
+def huggingaceInference():
+    huggingface_api_key = loadDotenvAndCheckAPIKey()
+    client = InferenceClient(
+        provider="hf-inference",
+        api_key=huggingface_api_key,
+    )
+    output = client.automatic_speech_recognition("D:\\LLM\\Audio\\harvard.wav", model="openai/whisper-medium.en")
+    print(output.text)
+
 if __name__ == '__main__':
     login(loadDotenvAndCheckAPIKey(), add_to_git_credential=True)
-    loadAudioAndTranscribeUsingPipeline()
+    # loadAudioAndTranscribeUsingPipeline()
     # transcription = loadAudioAndTranscribe()
     # messages = configurePrompt(transcription)
     # createMinutesOfMeeting(messages)
+    huggingaceInference()
