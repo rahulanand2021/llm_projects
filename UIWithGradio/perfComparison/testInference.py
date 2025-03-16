@@ -4,10 +4,6 @@ import gradio as gr
 from dotenv import load_dotenv
 import os
 
-# parsed_data = json.loads(completion.choices[0].message)
-# content = parsed_data[0]["content"]
-# print(completion.choices[0].message["content"])
-
 def loadDotenvAndCheckAPIKey():
     global openai_api_key
     load_dotenv(override=True)
