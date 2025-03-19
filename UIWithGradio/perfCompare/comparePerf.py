@@ -9,8 +9,10 @@ import subprocess
 
 OPENAI_MODEL = "gpt-4o"
 CLAUDE_MODEL = "claude-3-5-sonnet-20240620"
+GEMINI_MODEL = "gemini-1.5-flash"
 openai = None
 claude = None
+gemini = None
 
 system_message = "You are an assistant that reimplements Python code in high performance C++ for a Windows PC. "
 system_message += "Respond only with C++ code; use comments sparingly and do not provide any explanation other than occasional comments. "
@@ -41,11 +43,13 @@ def loadAPIKeys():
     load_dotenv()
     os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
     os.environ['ANTHROPIC_API_KEY'] = os.getenv('ANTHROPIC_API_KEY')
+    os.environ['GOOGLE_API_KEY'] = os.getenv('GOOGLE_API_KEY')
     # openai_key = os.getenv('OPENAI_API_KEY')
-    # anthropic_key = os.getenv('ANTHROPIC_API_KEY'
+    # anthropic_key = os.getenv('ANTHROPIC_API_KEY')
+    # gemini_key = os.getenv('GOOGLE_API_KEY')
 
 def loadOpenAIAndAnthropic():
-    global openai , claude
+    global openai , claude, gemini
     openai = OpenAI()
     claude = anthropic.Anthropic()
 
@@ -92,6 +96,27 @@ def optimize_claude(python):
             print(text, end="", flush=True)
             yield reply.replace('```cpp\n','').replace('```','')
     # write_output(reply)
+
+def optimize_gemini_(python):
+    gemini_key = os.getenv('GOOGLE_API_KEY')
+    prompts = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_prompt_for(python)}
+            ]
+    gemini = OpenAI(
+        api_key=gemini_key, 
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+    )
+    stream = gemini.chat.completions.create(
+        model=GEMINI_MODEL,
+        messages=prompts,
+        stream=True
+    )
+    content=""
+    for chunk in stream:
+        if chunk.choices[0].delta.content is not None:
+            content += chunk.choices[0].delta.content
+            yield content
 
 def optimize(python, model):
     if model=="GPT":
