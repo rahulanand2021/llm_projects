@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from huggingface_hub import login
 from datasets import load_dataset, Dataset, DatasetDict
 import matplotlib.pyplot as plt
+from items import Item
+import pickle
 
 dataset = None
 
@@ -81,14 +83,77 @@ def findMaxPrice():
                 price = tempPrice
         except ValueError as e:
             pass
+
     print(f"Max Price is {price} with title {title}")
+
+def createItemObject():
+    print("Creating the Item Object with Data Scrubbed  and loading it into an items list.....")
+    file_path= "fineTuning\dataCuration\items_list.pkl"
+    items = []
+
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+        print("Loading from the persisted file....")
+        with open(file_path, 'rb') as fl:
+            items = pickle.load(fl)
+    else:
+        print("Loading the items list for the first time ...")
+        for datapoint in dataset:
+            try:
+                price = float(datapoint["price"])
+                if price > 0:
+                    item = Item(datapoint, price)
+                    if item.include:
+                        items.append(item)
+            except ValueError as e:
+                pass
+        with open(file_path, 'wb') as fl:
+            pickle.dump(items, fl)
+
+    print(f"There are {len(items):,} items")
+    print("------------------------------------------------")
+    print(items[1000])
+    print("------------------------------------------------")
+    print(items[1000].prompt)
+    print("************************************************")
+    print(items[1000].test_prompt())
+
+def plotTokenCount():
+    file_path= "fineTuning\dataCuration\items_list.pkl"
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+        print("Loading from the persisted file....")
+        with open(file_path, 'rb') as fl:
+            items = pickle.load(fl)
+
+    tokens = [item.token_count for item in items]
+    plt.figure(figsize=(10, 6))
+    plt.title(f"Token counts: Avg {sum(tokens)/len(tokens):,.1f} and highest {max(tokens):,}\n")
+    plt.xlabel('Length (tokens)')
+    plt.ylabel('Count')
+    plt.hist(tokens, rwidth=0.7, color="green", bins=range(0, 300, 10))
+    plt.show()
+
+def plotPriceDistribution():
+    file_path= "fineTuning\dataCuration\items_list.pkl"
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+        print("Loading from the persisted file....")
+        with open(file_path, 'rb') as fl:
+            items = pickle.load(fl)
+
+    prices = [item.price for item in items]
+    plt.figure(figsize=(12, 6))
+    plt.title(f"Prices: Avg {sum(prices)/len(prices):,.1f} and highest {max(prices):,}\n")
+    plt.xlabel('Price ($)')
+    plt.ylabel('Count')
+    plt.hist(prices, rwidth=0.7, color="purple", bins=range(0, 300, 10))
+    plt.show()
 
 if __name__ == '__main__':
     login(loadDotenvAndCheckAPIKey(), add_to_git_credential=True)
     loadDataSet()
     # checkLengthOfDataSet()
-    prices, contentsLength = getPricesAndContentLength()
+    # prices, contentsLength = getPricesAndContentLength()
     # plotPricesHistogram(prices)
     # plotContentLengthHistogram(contentsLength)
-    findMaxPrice()
-
+    # findMaxPrice()
+    # createItemObject()
+    plotPriceDistribution()
