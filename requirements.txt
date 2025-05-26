@@ -42,3 +42,4 @@ setuptools
 speedtest-cli
 diffusers
 soundfile
+langchain-ollama
