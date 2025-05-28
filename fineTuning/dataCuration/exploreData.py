@@ -21,11 +21,11 @@ def loadDotenvAndCheckAPIKey():
 def loadDataSet():
 
     global dataset
-    dataset = load_dataset("McAuley-Lab/Amazon-Reviews-2023", f"raw_meta_Appliances", 
+    dataset = load_dataset("McAuley-Lab/Amazon-Reviews-2023", "raw_meta_Appliances", 
                             split="full", trust_remote_code=True)
     print(f"Number of Appliances: {len(dataset):,}")
 
-def checkLengthOfDataSet():
+def checkPriceAvailableForDataSet():
     prices = 0
     for datapoint in dataset:
         try:
@@ -149,8 +149,8 @@ def plotPriceDistribution():
 
 if __name__ == '__main__':
     login(loadDotenvAndCheckAPIKey(), add_to_git_credential=True)
-    loadDataSet()
-    # checkLengthOfDataSet()
+    # loadDataSet()
+    # checkPriceAvailableForDataSet()
     # prices, contentsLength = getPricesAndContentLength()
     # plotPricesHistogram(prices)
     # plotContentLengthHistogram(contentsLength)
